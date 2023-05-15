@@ -7,13 +7,12 @@
 #include <dirent.h>
 #include <stdlib.h>
 
-int src_file(char *src_path, char *des_path)
+int src_file(char *src_path, char *des_path) // source is file
 {
 	// judge whether the des_path is a file or a directory
 	struct stat buf;
 	if (stat(des_path, &buf) < 0)
 	{
-		printf("%s\n", des_path);
 		printf("stat error\n");
 		return -1;
 	}
@@ -24,7 +23,7 @@ int src_file(char *src_path, char *des_path)
 		char *des_path_cpy = strdup(des_path);
 		char *src_path_cpy = strdup(src_path);
 		char *file_name = NULL;
-		while (*src_path_cpy != '\0')
+		while (*src_path_cpy != '\0') // get the file name
 		{
 			if (*src_path_cpy == '/')
 			{
@@ -34,9 +33,6 @@ int src_file(char *src_path, char *des_path)
 		}
 		strcat(des_path_cpy, file_name); // combine des_path with the file name
 		des_path = strdup(des_path_cpy);
-		// src and des path
-		printf("src_path: %s\n", src_path);
-		printf("des_path: %s\n", des_path);
 	}
 	else if(S_ISREG(buf.st_mode))	// is a file
 	{
@@ -62,7 +58,7 @@ int src_file(char *src_path, char *des_path)
 		return -1;
 	}
 
-	// copy file
+	// copy file from src to des
 	char buffer[1024];
 	int len = read(src_fd, buffer, 1024);
 	while(len > 0)
@@ -72,7 +68,7 @@ int src_file(char *src_path, char *des_path)
 			printf("write error\n");
 			return -1;
 		}
-		len = read(src_fd, buffer, 1024);
+		len = read(src_fd, buffer, 1024); // read next 1024 bytes
 	}
 
 	// close file
@@ -81,17 +77,17 @@ int src_file(char *src_path, char *des_path)
 	return 1;
 }
 
-int src_dir(char *src_path, char *des_path)
+int src_dir(char *src_path, char *des_path) // source is directory
 {
 	// get current directory of src_path
 	int src_len = strlen(src_path), dir_len = 0;
+	
 	if (src_path[src_len - 1] == '/') // if the last char is '/', delete it
 		src_path[--src_len] = '\0';
 	while(src_path[src_len-dir_len] != '/')  // get the length of the directory name
 		dir_len++;
 	char *src_dir_name = (char *)malloc(dir_len+1);
 	strncpy(src_dir_name, src_path+src_len-dir_len+1, dir_len);
-	printf("src_dir_name: %s\n", src_dir_name);
 	
 	// create a new directory in des_path with the same name as in src_path
 	int des_len = strlen(des_path);
@@ -103,7 +99,6 @@ int src_dir(char *src_path, char *des_path)
 		printf("mkdir error\n");
 		return -1;
 	}
-	printf("after makedir des_path: %s\n", des_path);
 
 	// open directory
 	DIR *dir = opendir(src_path);
@@ -114,7 +109,6 @@ int src_dir(char *src_path, char *des_path)
 	}
 	// read directory
 	struct dirent *ptr;
-	printf("1 des_path: %s\n", des_path);
 	while((ptr = readdir(dir)) != NULL)
 	{
 		printf("d_name: %s\n", ptr->d_name);
@@ -142,10 +136,9 @@ int src_dir(char *src_path, char *des_path)
 	return 1;
 }
 
-int copy_judge(char *src_path, char *des_path)
+int copy_judge(char *src_path, char *des_path) // judge whether the src_path is a file or a directory
 {
-	// judge whether the path is a file or a directory
-	struct stat buf;
+	struct stat buf; // define src_path stat buffer
 	if (stat(src_path, &buf) < 0)
 	{
 		printf("stat error\n");
@@ -176,6 +169,7 @@ int main(int argc, char *argv[])
 	{
 		printf("argv[%d]: %s\n", i, argv[i]);
 	}
+
 	// if the last char is '/', delete it
 	int src_len = strlen(argv[1]), des_len = strlen(argv[2]);
 	if (argv[1][src_len - 1] == '/') 
