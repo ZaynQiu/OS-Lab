@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <dirent.h>
+#include <stdlib.h>
 
 int src_file(char *src_path, char *des_path)
 {
@@ -12,6 +13,7 @@ int src_file(char *src_path, char *des_path)
 	struct stat buf;
 	if (stat(des_path, &buf) < 0)
 	{
+		printf("%s\n", des_path);
 		printf("stat error\n");
 		return -1;
 	}
@@ -19,9 +21,9 @@ int src_file(char *src_path, char *des_path)
 	{
 		printf("destination_path is a directory\n");
 		// create a file in the directory, the name is same as the source file
-		char *des_path_cpy = des_path;
-		char *src_path_cpy = src_path;
-		char *file_name = src_path_cpy;
+		char *des_path_cpy = strdup(des_path);
+		char *src_path_cpy = strdup(src_path);
+		char *file_name = NULL;
 		while (*src_path_cpy != '\0')
 		{
 			if (*src_path_cpy == '/')
@@ -31,7 +33,7 @@ int src_file(char *src_path, char *des_path)
 			src_path_cpy++;
 		}
 		strcat(des_path_cpy, file_name); // combine des_path with the file name
-		des_path = des_path_cpy;
+		des_path = strdup(des_path_cpy);
 		// src and des path
 		printf("src_path: %s\n", src_path);
 		printf("des_path: %s\n", des_path);
@@ -53,7 +55,7 @@ int src_file(char *src_path, char *des_path)
 		printf("open src_file error\n");
 		return -1;
 	}
-	int des_fd = open(des_path, O_RDWR | O_CREAT, 0666);
+	int des_fd = open(des_path, O_RDWR | O_CREAT, 0777);
 	if (des_fd == -1) // file error
 	{
 		printf("open des_file error\n");
@@ -81,10 +83,27 @@ int src_file(char *src_path, char *des_path)
 
 int src_dir(char *src_path, char *des_path)
 {
-	// // get pwd
-	// char pwd[1024];
-	// getcwd(pwd, 1024);
-	// printf("pwd: %s\n", pwd);
+	// get current directory of src_path
+	int src_len = strlen(src_path), dir_len = 0;
+	if (src_path[src_len - 1] == '/') // if the last char is '/', delete it
+		src_path[--src_len] = '\0';
+	while(src_path[src_len-dir_len] != '/')  // get the length of the directory name
+		dir_len++;
+	char *src_dir_name = (char *)malloc(dir_len+1);
+	strncpy(src_dir_name, src_path+src_len-dir_len+1, dir_len);
+	printf("src_dir_name: %s\n", src_dir_name);
+	
+	// create a new directory in des_path with the same name as in src_path
+	int des_len = strlen(des_path);
+	strcat(des_path, "/");
+	strcat(des_path, src_dir_name);
+	
+	if (mkdir(des_path, 0777) == -1)
+	{
+		printf("mkdir error\n");
+		return -1;
+	}
+	printf("after makedir des_path: %s\n", des_path);
 
 	// open directory
 	DIR *dir = opendir(src_path);
@@ -93,9 +112,9 @@ int src_dir(char *src_path, char *des_path)
 		printf("open dir error\n");
 		return -1;
 	}
-
 	// read directory
 	struct dirent *ptr;
+	printf("1 des_path: %s\n", des_path);
 	while((ptr = readdir(dir)) != NULL)
 	{
 		printf("d_name: %s\n", ptr->d_name);
@@ -104,14 +123,18 @@ int src_dir(char *src_path, char *des_path)
 		{
 			continue;
 		}
-		// ptr->d_type is directory
+		char *src_path_cpy = (strcat(strdup(src_path), "/"));
+		src_path_cpy = strcat(src_path_cpy, ptr->d_name);
 		if(ptr->d_type == DT_REG)
 		{
-
+			src_file(src_path_cpy, des_path);
 		}
 		else if(ptr->d_type == DT_DIR)
 		{
-
+			char *des_path_cpy = strcat(des_path, "/");
+			des_path_cpy = strcat(des_path_cpy, ptr->d_name);
+			mkdir(des_path_cpy, 0777);
+			src_dir(src_path, des_path_cpy);
 		}
 	}
 
@@ -128,22 +151,21 @@ int copy_judge(char *src_path, char *des_path)
 		printf("stat error\n");
 		return -1;
 	}
-	if (S_ISDIR(buf.st_mode)) // is a directory
-	{
-		printf("source_path is a directory\n");
-		src_dir(src_path, des_path);
-	}
-	else if (S_ISREG(buf.st_mode)) // is a file
+	if (S_ISREG(buf.st_mode)) // is a file
 	{
 		printf("source_path is a file\n");
 		src_file(src_path, des_path);
+	}
+	else if (S_ISDIR(buf.st_mode)) // is a directory
+	{
+		printf("source_path is a directory\n");
+		src_dir(src_path, des_path);
 	}
 	else
 	{
 		printf("source_path is not a file or a directory\n");
 		return -1;
 	}
-
 	return 1;
 }
 
@@ -154,7 +176,13 @@ int main(int argc, char *argv[])
 	{
 		printf("argv[%d]: %s\n", i, argv[i]);
 	}
-	
+	// if the last char is '/', delete it
+	int src_len = strlen(argv[1]), des_len = strlen(argv[2]);
+	if (argv[1][src_len - 1] == '/') 
+		argv[1][--src_len] = '\0';
+	if (argv[2][des_len - 1] == '/')
+		argv[2][--des_len] = '\0';
+
 	copy_judge(argv[1], argv[2]);
 	
 	return 0;
