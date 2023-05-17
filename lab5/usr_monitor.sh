@@ -27,10 +27,10 @@ then
 	exit 1
 fi
 
-echo "waiting user $1 logon..."
 #check if given user is log in
 while :
 do
+	echo "waiting user $1 logon..."
 	username=$(who)
 	while read -r line
 	do
