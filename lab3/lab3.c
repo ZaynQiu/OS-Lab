@@ -9,7 +9,7 @@
 #include <fcntl.h>
 
 int pipe(int fildes[2]); // 0 read 1 write
-sem_t mutex[5];
+sem_t *mutex[5];
 
 int main(void)
 {
@@ -21,15 +21,17 @@ int main(void)
 		perror("pipe");
 		exit(1);
 	}
-
-	// create mutex
+	
+	// create mutex to ensure the order of child process
 	for (int i = 1; i <= 3; i++)
 	{
-		mutex[i] = *sem_open("my_sem", O_CREAT, S_IWUSR, 1);
-		sem_post(&mutex[i]);
+		char sem_name[10]; // set mutex name = sem_i
+		sprintf(sem_name, "sem_%d", i);
+		mutex[i] = sem_open(sem_name, O_CREAT | O_RDWR, 0666, 1);
+		sem_post(mutex[i]);
 	}
-	sem_wait(&mutex[1]);
-	sem_wait(&mutex[2]);
+	sem_wait(mutex[1]);
+	sem_wait(mutex[2]);
 
 	child1_pid1 = fork();
 	if (child1_pid1 == 0) // child1 write
@@ -38,25 +40,25 @@ int main(void)
 		pipe_file = fdopen(fd[1], "w");
 		fprintf(pipe_file, "Child process 1 is sending a message!\n");
 		fclose(pipe_file);
-		sem_post(&mutex[1]);
+		sem_post(mutex[1]);
 		exit(0);
 	}
 	child_pid2 = fork();
 	if(child_pid2 == 0) // child2 write
 	{
-		sem_wait(&mutex[1]);
+		sem_wait(mutex[1]);
 		close(fd[0]);
 		pipe_file = fdopen(fd[1], "w");
 		fprintf(pipe_file, "Child process 2 is sending a message!\n");
 		fclose(pipe_file);
-		sem_post(&mutex[2]);
-		sem_post(&mutex[1]);
+		sem_post(mutex[2]);
+		sem_post(mutex[1]);
 		exit(0);
 	}
 	
 	// parent read
 	close(fd[1]);
-	sem_wait(&mutex[2]);
+	sem_wait(mutex[2]);
 	pipe_file = fdopen(fd[0], "r");
 	char buf[1024];
 	fgets(buf, 1024, pipe_file);
@@ -64,6 +66,6 @@ int main(void)
 	fgets(buf, 1024, pipe_file);
 	printf("%s", buf);
 	fclose(pipe_file);
-	sem_post(&mutex[2]);
+	sem_post(mutex[2]);
 	return 0;
 }
